@@ -21,6 +21,17 @@ const App = {
             RealtimeService.start();
             // Charger les tarifs depuis l'API
             RatesService.load();
+            // Initialiser le push
+            if (typeof TenantPushService !== 'undefined') {
+                TenantPushService.init().then(() => {
+                    if (TenantPushService.isSupported() && !TenantPushService.isEnabled()) {
+                        // On n'auto-demande pas la permission, laissons l'utilisateur décider depuis les paramètres
+                        console.log('[TenantPush] Prêt, permission non encore accordée');
+                    } else if (TenantPushService.isEnabled()) {
+                        TenantPushService.requestPermission();
+                    }
+                });
+            }
             // Mettre à jour le header avec les infos utilisateur
             this.updateHeaderUser();
         }
@@ -113,6 +124,7 @@ const App = {
         Router.register('/clients', () => Views.clients.render());
         Router.register('/clients/:id', (ctx) => Views.clientDetail.render(ctx.params.id));
         Router.register('/pickups-payments', () => Views.pickupsPayments.render());
+        Router.register('/logi-pay', () => LogiPayView.render());
         Router.register('/reports', () => Views.reports.render());
         Router.register('/announcements', () => Views.announcements.render());
         Router.register('/departures', () => Views.departures.render());

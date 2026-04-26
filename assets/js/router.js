@@ -164,6 +164,7 @@ const Router = {
             '/departures': 'Departs',
             '/pickups': 'Retraits',
             '/pickups-payments': 'Retraits et Paiements',
+            '/logi-pay': 'Logi Pay',
             '/staff': 'Personnel',
             '/payroll': 'RH / Paie',
             '/tarifs': 'Tarifs',

@@ -29,6 +29,9 @@ Views.settings = {
                     <button class="settings-tab ${this.currentTab === 'online-payments' ? 'active' : ''}" data-tab="online-payments">
                         ${Icons.get('credit-card', {size:16})} ${I18n.t('settings.tab_online_payments')}
                     </button>
+                    <button class="settings-tab ${this.currentTab === 'logi-pay' ? 'active' : ''}" data-tab="logi-pay">
+                        ${Icons.get('dollar-sign', {size:16})} Logi Pay
+                    </button>
                     <button class="settings-tab ${this.currentTab === 'appearance' ? 'active' : ''}" data-tab="appearance">
                         ${Icons.get('sun', {size:16})} ${I18n.t('settings.tab_appearance')}
                     </button>
@@ -69,6 +72,9 @@ Views.settings = {
                 break;
             case 'online-payments':
                 this.renderOnlinePaymentsTab(container);
+                break;
+            case 'logi-pay':
+                this.renderLogiPayTab(container);
                 break;
             case 'appearance':
                 this.renderAppearanceTab(container);
@@ -2137,4 +2143,101 @@ Views.settings = {
             Toast.error(err.message);
         }
     },
+    
+    // ============================================
+    // ONGLET LOGI PAY
+    // ============================================
+    async renderLogiPayTab(container) {
+        container.innerHTML = Loader.page(I18n.t('loading'));
+        
+        let logiPayConfig = {
+            enabled: false,
+            exchange_rate_cny: 88.5,
+            currency_local: 'XAF',
+            processing_delay_hours: 24,
+            processing_delay_label: '24-48 heures',
+            disclaimer: 'Ce service est réservé aux paiements fournisseurs en Chine.'
+        };
+        
+        try {
+            const data = await API.request('/admin/settings/logi-pay');
+            if (data && data.logi_pay) {
+                logiPayConfig = { ...logiPayConfig, ...data.logi_pay };
+            }
+        } catch (err) {
+            console.error('Erreur chargement Logi Pay config', err);
+        }
+        
+        container.innerHTML = `
+            <div class="card mb-md">
+                <div class="card-header">
+                    <h3 class="card-title">${Icons.get('dollar-sign', {size:18})} Configuration Logi Pay</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-md">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="lp-enabled" ${logiPayConfig.enabled ? 'checked' : ''}>
+                            <span>Activer le service Logi Pay pour les clients</span>
+                        </label>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Taux de change (1 CNY en Local)</label>
+                            <input type="number" id="lp-exchange" class="form-input" step="0.1" value="${logiPayConfig.exchange_rate_cny}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Devise locale</label>
+                            <input type="text" id="lp-currency" class="form-input" value="${logiPayConfig.currency_local}">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Délai de traitement (heures)</label>
+                            <input type="number" id="lp-delay-hours" class="form-input" value="${logiPayConfig.processing_delay_hours}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Texte du délai (affiché au client)</label>
+                            <input type="text" id="lp-delay-label" class="form-input" value="${logiPayConfig.processing_delay_label}" placeholder="ex: 24-48 heures">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Avertissement / Conditions (affiché au client)</label>
+                        <textarea id="lp-disclaimer" class="form-input" rows="4">${logiPayConfig.disclaimer || ''}</textarea>
+                        <p class="form-hint">Texte informatif avant la soumission de la demande.</p>
+                    </div>
+                    
+                    <button class="btn btn-primary mt-sm" id="btn-save-logipay">Enregistrer la configuration</button>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('btn-save-logipay')?.addEventListener('click', async () => {
+            const btn = document.getElementById('btn-save-logipay');
+            Loader.button(btn, true);
+            
+            const payload = {
+                enabled: document.getElementById('lp-enabled').checked,
+                exchange_rate_cny: parseFloat(document.getElementById('lp-exchange').value),
+                currency_local: document.getElementById('lp-currency').value,
+                processing_delay_hours: parseInt(document.getElementById('lp-delay-hours').value),
+                processing_delay_label: document.getElementById('lp-delay-label').value,
+                disclaimer: document.getElementById('lp-disclaimer').value
+            };
+            
+            try {
+                await API.request('/admin/settings/logi-pay', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                Toast.success('Configuration Logi Pay enregistrée');
+            } catch (err) {
+                Toast.error(err.message);
+            } finally {
+                Loader.button(btn, false);
+            }
+        });
+    }
 };

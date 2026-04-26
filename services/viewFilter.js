@@ -25,7 +25,7 @@
 // Mapping: module backend → vues frontend autorisées
 const MODULE_VIEWS = {
     packages:      ['packages', 'clients', 'pickups-payments'],
-    finance:       ['reports', 'payroll'],
+    finance:       ['reports', 'payroll', 'logi-pay'],
     departures:    ['departures'],
     communication: ['announcements'],
     settings:      ['tarifs', 'settings'],

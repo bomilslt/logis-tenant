@@ -726,6 +726,23 @@ const API = {
     },
     
     // ============================================
+    // LOGI PAY
+    // ============================================
+    logiPay: {
+        admin: {
+            getRequests: (params = {}) => {
+                const query = new URLSearchParams(params).toString();
+                return API.request(`/admin/logi-pay/requests${query ? '?' + query : ''}`);
+            },
+            getRequest: (id) => API.request(`/admin/logi-pay/requests/${id}`),
+            updateStatus: (id, data) => API.request(`/admin/logi-pay/requests/${id}/status`, {
+                method: 'PUT',
+                body: JSON.stringify(data) // { status, admin_notes, rejection_reason }
+            })
+        }
+    },
+    
+    // ============================================
     // EXPORTS (PDF et Excel)
     // ============================================
     exports: {

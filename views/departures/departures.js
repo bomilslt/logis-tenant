@@ -314,6 +314,16 @@ Views.departures = {
         const origins = RatesService.getOrigins();
         const destinations = RatesService.getDestinations();
         
+        if (!isEdit) {
+            try {
+                const res = await API.packages.getAll({ departure_id: 'none', per_page: 1000 });
+                this.pendingPackages = res.packages || [];
+            } catch (e) {
+                console.error('Error fetching pending packages:', e);
+                this.pendingPackages = [];
+            }
+        }
+        
         const defaultDate = new Date();
         defaultDate.setDate(defaultDate.getDate() + 7);
         const defaultDateStr = defaultDate.toISOString().split('T')[0];
@@ -589,37 +599,13 @@ Views.departures = {
      * Compter les colis en attente (sans depart assigne) pour une route specifique
      */
     countPendingPackagesForRoute(originCountry, destCountry, transportMode) {
-        const packages = this.ensurePackagesLoaded();
+        const packages = this.pendingPackages || [];
         return packages.filter(p => 
             !p.departure_id &&
-            p.origin_country === originCountry &&
-            p.destination_country === destCountry &&
+            (p.origin?.country === originCountry || p.origin_country === originCountry) &&
+            (p.destination?.country === destCountry || p.destination_country === destCountry) &&
             p.transport_mode === transportMode
         ).length;
-    },
-    
-    /**
-     * Assigner automatiquement les colis en attente a un depart
-     */
-    autoAssignPendingPackages(departureId, originCountry, destCountry, transportMode) {
-        let packages = JSON.parse(localStorage.getItem('ec_packages') || '[]');
-        let assignedCount = 0;
-        
-        packages.forEach(pkg => {
-            if (!pkg.departure_id &&
-                pkg.origin_country === originCountry &&
-                pkg.destination_country === destCountry &&
-                pkg.transport_mode === transportMode) {
-                pkg.departure_id = departureId;
-                assignedCount++;
-            }
-        });
-        
-        if (assignedCount > 0) {
-            localStorage.setItem('ec_packages', JSON.stringify(packages));
-        }
-        
-        return assignedCount;
     },
     
     editDeparture(id) {

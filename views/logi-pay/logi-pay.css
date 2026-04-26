@@ -1,0 +1,158 @@
+/* =============================================
+   Logi Pay Admin - Tenant View Styles
+   ============================================= */
+
+/* ---- Stats Cards ---- */
+.logi-pay-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md, 16px);
+    margin-bottom: var(--spacing-lg, 24px);
+}
+
+@media (min-width: 768px) {
+    .logi-pay-stats {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.lp-stat-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-lg, 12px);
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.lp-stat-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.lp-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+}
+
+.lp-stat-card.pending::before  { background: #f59e0b; }
+.lp-stat-card.received::before { background: #3b82f6; }
+.lp-stat-card.completed::before{ background: #10b981; }
+.lp-stat-card.rejected::before { background: #ef4444; }
+
+.lp-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted, #64748b);
+}
+
+.lp-stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary, #1e293b);
+    line-height: 1.1;
+}
+
+.lp-stat-sub {
+    font-size: 12px;
+    color: var(--text-muted, #64748b);
+}
+
+/* ---- Colored dot indicator ---- */
+.lp-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+    flex-shrink: 0;
+}
+
+.lp-dot.pending  { background: #f59e0b; }
+.lp-dot.received { background: #3b82f6; }
+.lp-dot.processing { background: #8b5cf6; }
+.lp-dot.completed { background: #10b981; }
+.lp-dot.rejected  { background: #ef4444; }
+
+/* ---- Table enhancements ---- */
+#logi-pay-table thead th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#logi-pay-table tbody tr {
+    transition: background 0.15s ease;
+}
+
+/* ---- Filter bar ---- */
+.lp-filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lp-filter-bar .form-input {
+    flex: 1;
+    min-width: 160px;
+}
+
+/* ---- Empty state ---- */
+.lp-admin-empty {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.lp-admin-empty svg {
+    opacity: 0.25;
+    margin-bottom: 16px;
+}
+
+/* ---- Modal detail grid ---- */
+.lp-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 480px) {
+    .lp-detail-grid {
+        grid-template-columns: 1fr;
+    }
+    .logi-pay-stats {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.lp-detail-item {
+    background: var(--bg-color-alt, #f8fafc);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.lp-detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted, #64748b);
+    margin-bottom: 4px;
+}
+
+.lp-detail-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary, #1e293b);
+}

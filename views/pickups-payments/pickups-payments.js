@@ -347,9 +347,10 @@ Views.pickupsPayments = {
                     </div>
                     
                     <div class="form-actions mt-md">
-                        <button class="btn btn-outline" onclick="Views.pickupsPayments.cancelPickup()">${I18n.t('cancel')}</button>
-                        <button class="btn btn-primary" onclick="Views.pickupsPayments.confirmPickup(this)">
-                            ${Icons.get('check', {size:16})} ${I18n.t('pickups.confirm_pickup')}
+                        <button class="btn btn-outline" onclick="Views.pickupsPayments.cancelPickup()">Annuler</button>
+                        <button class="btn btn-primary" id="btn-confirm-pickup"
+                            onclick="Views.pickupsPayments.showPickupCodeModal(this)">
+                            ${Icons.get('shield', {size:16})} Valider le retrait (code sécurisé)
                         </button>
                     </div>
                 </div>
@@ -364,7 +365,7 @@ Views.pickupsPayments = {
             });
         });
         
-        formCard.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('pickupFormCard').scrollIntoView({ behavior: 'smooth' });
     },
     
     cancelPickup() {
@@ -379,6 +380,129 @@ Views.pickupsPayments = {
         `;
         document.getElementById('pickupSearchInput').value = '';
     },
+    
+    /**
+     * Modale de saisie du code de retrait sécurisé
+     */
+    showPickupCodeModal(btn) {
+        if (!this.pickups.currentPackage) return;
+        
+        // Créer la modale
+        const existingModal = document.getElementById('pickup-code-modal');
+        if (existingModal) existingModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'pickup-code-modal';
+        modal.className = 'otp-modal show';
+        modal.innerHTML = `
+            <div class="otp-modal-backdrop" id="pickup-code-backdrop"></div>
+            <div class="otp-modal-container">
+                <div class="otp-modal-content">
+                    <div class="otp-header">
+                        <div class="otp-icon" style="background: linear-gradient(135deg, #059669, #10b981);">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <h2 class="otp-title">Validation sécurisée</h2>
+                        <p class="otp-subtitle">Demandez au client son <strong>code de retrait</strong> et saisissez-le ci-dessous</p>
+                    </div>
+                    
+                    <div class="pickup-code-info" style="background: var(--surface-secondary); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-bottom: 4px;">Colis</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: var(--text-primary);">${this.pickups.currentPackage.tracking_number}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">${this.pickups.currentPackage.client?.full_name || ''}</div>
+                    </div>
+                    
+                    <div class="otp-input-container" id="pickup-code-inputs">
+                        <input type="text" class="otp-input" maxlength="1" data-index="0" inputmode="numeric">
+                        <input type="text" class="otp-input" maxlength="1" data-index="1" inputmode="numeric">
+                        <input type="text" class="otp-input" maxlength="1" data-index="2" inputmode="numeric">
+                        <input type="text" class="otp-input" maxlength="1" data-index="3" inputmode="numeric">
+                        <input type="text" class="otp-input" maxlength="1" data-index="4" inputmode="numeric">
+                        <input type="text" class="otp-input" maxlength="1" data-index="5" inputmode="numeric">
+                    </div>
+                    
+                    <div id="pickup-code-error" class="otp-error" style="display:none; margin-bottom: 12px;"></div>
+                    
+                    <button id="btn-pickup-code-validate" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">
+                        Valider et livrer le colis
+                    </button>
+                    <button class="btn btn-outline" style="width: 100%;" onclick="document.getElementById('pickup-code-modal').remove()">
+                        Annuler
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Activer les inputs OTP
+        const inputs = modal.querySelectorAll('.otp-input');
+        inputs.forEach((input, i) => {
+            input.addEventListener('input', (e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                e.target.value = val;
+                if (val && i < inputs.length - 1) inputs[i + 1].focus();
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && i > 0) inputs[i - 1].focus();
+            });
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                paste.split('').forEach((char, idx) => {
+                    if (inputs[idx]) inputs[idx].value = char;
+                });
+                if (inputs[Math.min(paste.length, inputs.length - 1)]) {
+                    inputs[Math.min(paste.length, inputs.length - 1)].focus();
+                }
+            });
+        });
+        inputs[0]?.focus();
+        
+        // Bouton valider
+        document.getElementById('btn-pickup-code-validate').addEventListener('click', () => {
+            const code = Array.from(inputs).map(i => i.value).join('');
+            if (code.length !== 6) {
+                document.getElementById('pickup-code-error').textContent = 'Veuillez entrer le code complet à 6 chiffres';
+                document.getElementById('pickup-code-error').style.display = 'block';
+                return;
+            }
+            this.confirmPickupWithCode(code);
+        });
+    },
+    
+    async confirmPickupWithCode(code) {
+        if (!this.pickups.currentPackage) return;
+        
+        const errorEl = document.getElementById('pickup-code-error');
+        const btn = document.getElementById('btn-pickup-code-validate');
+        
+        errorEl.style.display = 'none';
+        if (btn) { btn.disabled = true; btn.textContent = 'Vérification...'; }
+        
+        try {
+            // Appel à l'endpoint de vérification sécurisée
+            await API.request(`/packages/${this.pickups.currentPackage.id}/verify-pickup`, {
+                method: 'POST',
+                body: JSON.stringify({ code })
+            });
+            
+            // Succès !
+            document.getElementById('pickup-code-modal')?.remove();
+            Toast.success('Colis livré avec succès ! Code vérifié ✓');
+            this.cancelPickup();
+            this.loadPickupsStats();
+            this.loadAvailablePackages();
+        } catch (error) {
+            errorEl.textContent = error.message || 'Code invalide. Veuillez réessayer.';
+            errorEl.style.display = 'block';
+            // Vider les inputs
+            document.querySelectorAll('#pickup-code-modal .otp-input').forEach(i => i.value = '');
+            document.querySelector('#pickup-code-modal .otp-input[data-index="0"]')?.focus();
+            if (btn) { btn.disabled = false; btn.textContent = 'Valider et livrer le colis'; }
+        }
+    },
+    
     
     async confirmPickup(btn = null) {
         if (!this.pickups.currentPackage) return;
