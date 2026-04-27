@@ -308,7 +308,16 @@ Views.departures = {
     async showDepartureModal(editId = null) {
         const isEdit = !!editId;
         const dep = isEdit ? this.departures.find(d => d.id === editId) : null;
-        
+
+        // IMPORTANT: réinitialiser les refs des composants pour ne pas hériter
+        // de l'état de la modale précédente (sinon updateTransportSelect/updatePendingCount
+        // lisent des valeurs fantômes via this.depDestSelect?.getValue() etc.)
+        this.depOriginSelect = null;
+        this.depCitySelect = null;
+        this.depDestSelect = null;
+        this.depTransportSelect = null;
+        this.depDatePicker = null;
+
         // Charger les données depuis RatesService (API)
         await RatesService.ensureLoaded();
         const origins = RatesService.getOrigins();
@@ -377,11 +386,77 @@ Views.departures = {
             ` : ''}
         `;
         
-        const result = await Modal.form({
+        await Modal.form({
             title: isEdit ? I18n.t('departures.edit_departure') : I18n.t('departures.schedule_departure'),
             content,
             confirmText: isEdit ? I18n.t('save') : I18n.t('departures.schedule_departure'),
             size: 'md',
+            onSubmit: async () => {
+                // Retourne false pour garder la modale ouverte (validation/API a échoué),
+                // true (ou undefined) pour fermer.
+                const confirmBtn = document.getElementById('modal-form-confirm');
+                const originCountry = this.depOriginSelect?.getValue();
+                const originCity = this.depCitySelect?.getValue();
+                const destCountry = this.depDestSelect?.getValue();
+                const transport = this.depTransportSelect?.getValue();
+                const date = this.depDatePicker?.getValue();
+                const duration = parseInt(document.getElementById('dep-duration').value) || 7;
+                const notes = document.getElementById('dep-notes').value.trim();
+                const autoAssign = !isEdit && document.getElementById('dep-auto-assign')?.checked;
+
+                if (!originCountry || !destCountry || !transport || !date) {
+                    Toast.error(I18n.t('departures.fill_required'));
+                    return false; // garder la modale ouverte
+                }
+
+                try {
+                    Loader.button(confirmBtn, true, { text: isEdit ? I18n.t('clients.saving') : I18n.t('departures.schedule_departure') + '...' });
+                    if (isEdit) {
+                        const updated = await API.departures.update(editId, {
+                            origin_country: originCountry,
+                            origin_city: originCity,
+                            dest_country: destCountry,
+                            transport_mode: transport,
+                            departure_date: date,
+                            estimated_duration: duration,
+                            notes
+                        });
+                        const idx = this.departures.findIndex(d => d.id === editId);
+                        if (idx !== -1) {
+                            this.departures[idx] = updated.departure || { ...this.departures[idx], ...updated };
+                        }
+                        Toast.success(I18n.t('departures.departure_updated'));
+                    } else {
+                        const created = await API.departures.create({
+                            origin_country: originCountry,
+                            origin_city: originCity,
+                            dest_country: destCountry,
+                            transport_mode: transport,
+                            departure_date: date,
+                            estimated_duration: duration,
+                            notes,
+                            auto_assign: autoAssign
+                        });
+                        const newDeparture = created.departure;
+                        this.departures.push(newDeparture);
+                        const assignedCount = created.assigned_packages || 0;
+                        if (assignedCount > 0) {
+                            Toast.success(I18n.t('departures.departure_created_assigned').replace('{n}', assignedCount));
+                        } else {
+                            Toast.success(I18n.t('departures.departure_created'));
+                        }
+                    }
+                    this.saveData();
+                    this.renderDepartures();
+                    return true; // succès -> Modal.form fermera la modale
+                } catch (error) {
+                    console.error('Save departure error:', error);
+                    Toast.error(`Erreur: ${error.message}`);
+                    return false; // garder ouvert pour permettre une nouvelle tentative
+                } finally {
+                    Loader.button(confirmBtn, false);
+                }
+            },
             onOpen: () => {
                 // Fonction pour mettre à jour les transports disponibles
                 const updateTransportSelect = () => {
@@ -423,13 +498,16 @@ Views.departures = {
                 const updatePendingCount = () => {
                     if (isEdit) return;
                     
-                    const origin = this.depOriginSelect?.getValue();
-                    const dest = this.depDestSelect?.getValue();
-                    const transport = this.depTransportSelect?.getValue();
-                    
                     const infoDiv = document.getElementById('auto-assign-info');
                     const toggleDiv = document.getElementById('auto-assign-toggle');
                     const labelSpan = document.getElementById('auto-assign-label');
+                    // Garde-fou: si la section auto-assign n'existe pas (mode édition
+                    // ou rendu partiel), ne rien faire pour éviter un TypeError
+                    if (!infoDiv || !toggleDiv) return;
+                    
+                    const origin = this.depOriginSelect?.getValue();
+                    const dest = this.depDestSelect?.getValue();
+                    const transport = this.depTransportSelect?.getValue();
                     
                     if (!origin || !dest || !transport) {
                         infoDiv.innerHTML = `${Icons.get('package', {size:16})}<span>${I18n.t('departures.select_route_transport')}</span>`;
@@ -521,78 +599,6 @@ Views.departures = {
                 updatePendingCount();
             }
         });
-        
-        if (result) {
-            const confirmBtn = document.getElementById('modal-form-confirm');
-            const originCountry = this.depOriginSelect?.getValue();
-            const originCity = this.depCitySelect?.getValue();
-            const destCountry = this.depDestSelect?.getValue();
-            const transport = this.depTransportSelect?.getValue();
-            const date = this.depDatePicker?.getValue();
-            const duration = parseInt(document.getElementById('dep-duration').value) || 7;
-            const notes = document.getElementById('dep-notes').value.trim();
-            const autoAssign = !isEdit && document.getElementById('dep-auto-assign')?.checked;
-            
-            if (!originCountry || !destCountry || !transport || !date) {
-                Toast.error(I18n.t('departures.fill_required'));
-                return;
-            }
-            
-            try {
-                Loader.button(confirmBtn, true, { text: isEdit ? I18n.t('clients.saving') : I18n.t('departures.schedule_departure') + '...' });
-                if (isEdit) {
-                    // Appel API pour modifier
-                    const updated = await API.departures.update(editId, {
-                        origin_country: originCountry,
-                        origin_city: originCity,
-                        dest_country: destCountry,
-                        transport_mode: transport,
-                        departure_date: date,
-                        estimated_duration: duration,
-                        notes
-                    });
-                    
-                    // Mettre à jour localement
-                    const idx = this.departures.findIndex(d => d.id === editId);
-                    if (idx !== -1) {
-                        this.departures[idx] = updated.departure || { ...this.departures[idx], ...updated };
-                    }
-                    Toast.success(I18n.t('departures.departure_updated'));
-                } else {
-                    // Appel API pour créer
-                    const created = await API.departures.create({
-                        origin_country: originCountry,
-                        origin_city: originCity,
-                        dest_country: destCountry,
-                        transport_mode: transport,
-                        departure_date: date,
-                        estimated_duration: duration,
-                        notes,
-                        auto_assign: autoAssign
-                    });
-                    
-                    const newDeparture = created.departure;
-                    this.departures.push(newDeparture);
-                    
-                    const assignedCount = created.assigned_packages || 0;
-                    if (assignedCount > 0) {
-                        Toast.success(I18n.t('departures.departure_created_assigned').replace('{n}', assignedCount));
-                    } else {
-                        Toast.success(I18n.t('departures.departure_created'));
-                    }
-                }
-                
-                Modal.close();
-                this.saveData();
-                this.renderDepartures();
-                
-            } catch (error) {
-                console.error('Save departure error:', error);
-                Toast.error(`Erreur: ${error.message}`);
-            } finally {
-                Loader.button(confirmBtn, false);
-            }
-        }
     },
     
     /**

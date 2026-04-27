@@ -102,7 +102,22 @@ const Modal = {
     
     form(options = {}) {
         return new Promise((resolve) => {
-            const { title = 'Formulaire', content = '', confirmText = 'Enregistrer', cancelText = 'Annuler', size = '', onOpen = null } = options;
+            const {
+                title = 'Formulaire',
+                content = '',
+                confirmText = 'Enregistrer',
+                cancelText = 'Annuler',
+                size = '',
+                onOpen = null,
+                onSubmit = null  // async callback; return true (or undefined) to close, false to keep modal open (for retry after error)
+            } = options;
+            
+            let settled = false;
+            const settle = (value) => {
+                if (settled) return;
+                settled = true;
+                resolve(value);
+            };
             
             this.open({
                 title,
@@ -113,36 +128,48 @@ const Modal = {
                 `,
                 size,
                 closable: true,
-                onClose: () => resolve(false)
+                onClose: () => settle(false)
             });
             
             // Attacher les events après un court délai pour s'assurer que le DOM est prêt
             requestAnimationFrame(() => {
-                // Callback apres ouverture pour attacher des events personnalisés
-                if (onOpen) {
-                    onOpen();
-                }
+                if (onOpen) onOpen();
                 
-                // Attacher les events des boutons
                 const cancelBtn = document.getElementById('modal-form-cancel');
                 const confirmBtn = document.getElementById('modal-form-confirm');
                 
-                console.log('Modal.form: attaching events', { cancelBtn, confirmBtn });
-                
                 if (cancelBtn) {
                     cancelBtn.onclick = () => { 
-                        console.log('Modal.form: cancel clicked');
                         this.close(); 
-                        resolve(false); 
+                        settle(false); 
                     };
                 }
                 
                 if (confirmBtn) {
-                    confirmBtn.onclick = () => { 
-                        console.log('Modal.form: confirm clicked');
-                        // Ne pas fermer ici - laisser le code appelant gerer la fermeture apres validation
-                        resolve(true); 
-                    };
+                    if (onSubmit) {
+                        // Mode callback: l'utilisateur peut re-cliquer apres une erreur
+                        let busy = false;
+                        confirmBtn.onclick = async () => {
+                            if (busy) return; // anti double-clic pendant l'appel
+                            busy = true;
+                            try {
+                                const result = await onSubmit();
+                                // result === false => garder la modale ouverte (erreur cote caller)
+                                if (result !== false) {
+                                    this.close();
+                                    settle(true);
+                                }
+                            } catch (e) {
+                                console.error('Modal.form onSubmit threw:', e);
+                                // Garder la modale ouverte pour permettre une nouvelle tentative
+                            } finally {
+                                busy = false;
+                            }
+                        };
+                    } else {
+                        // Mode legacy (Promise resolve une fois)
+                        confirmBtn.onclick = () => settle(true);
+                    }
                 }
             });
         });
