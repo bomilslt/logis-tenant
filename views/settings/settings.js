@@ -1217,12 +1217,11 @@ Views.settings = {
         } else if (channelId === 'whatsapp') {
             content = `
                 <div class="form-group">
-                    <label class="form-label">Phone Number ID</label>
-                    <input type="text" id="wa-phone-id" class="form-input" placeholder="ID du numero WhatsApp Business" value="${channel.config?.phone_id || ''}">
+                    <label class="form-label">Provider WhatsApp</label>
+                    <div id="wa-provider-container"></div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Access Token</label>
-                    <input type="password" id="wa-token" class="form-input" placeholder="Token d'acces">
+                <div id="wa-config-fields">
+                    <!-- Champs charges dynamiquement selon le provider -->
                 </div>
                 <p class="text-sm text-muted mt-md">${Icons.get('info', {size:14})} Webhook: <code>${CONFIG.API_URL}/webhooks/whatsapp</code></p>
             `;
@@ -1302,17 +1301,64 @@ Views.settings = {
                 }
             });
         } else if (channelId === 'whatsapp') {
+            const waProviderSelect = new SearchSelect({
+                container: '#wa-provider-container',
+                placeholder: 'Provider WhatsApp',
+                items: [
+                    { id: 'meta', name: 'Meta WhatsApp Business API (recommande)' },
+                    { id: 'twilio', name: 'Twilio' },
+                    { id: 'wati', name: 'WATI' }
+                ],
+                onSelect: (item) => {
+                    this.updateWhatsAppConfigFields(item?.id || 'meta', channel);
+                }
+            });
+            
+            // Pre-selectionner le provider deja configure
+            const validWaIds = ['meta', 'twilio', 'wati'];
+            const rawWa = String(channel.provider || '').toLowerCase();
+            let waProviderId = validWaIds.find(id => rawWa === id || rawWa.includes(id));
+            if (!waProviderId) {
+                if (rawWa.includes('facebook') || rawWa.includes('meta')) waProviderId = 'meta';
+                else if (rawWa.includes('twilio')) waProviderId = 'twilio';
+                else if (rawWa.includes('wati')) waProviderId = 'wati';
+            }
+            waProviderId = waProviderId || 'meta';
+            waProviderSelect.setValue(waProviderId);
+            this.updateWhatsAppConfigFields(waProviderId, channel);
+            
             document.getElementById('btn-save-channel')?.addEventListener('click', async () => {
                 const btn = document.getElementById('btn-save-channel');
-                const phoneId = document.getElementById('wa-phone-id').value.trim();
-                const token = document.getElementById('wa-token').value.trim();
+                const provider = waProviderSelect.getValue() || 'meta';
+                const config = {};
                 
-                const config = { phone_id: phoneId };
-                if (token) config.access_token = token;
+                if (provider === 'meta') {
+                    const phoneNumberId = document.getElementById('wa-phone-number-id')?.value.trim();
+                    const accessToken = document.getElementById('wa-access-token')?.value.trim();
+                    const businessAccountId = document.getElementById('wa-business-account-id')?.value.trim();
+                    
+                    config.phone_number_id = phoneNumberId;
+                    if (accessToken) config.access_token = accessToken;
+                    if (businessAccountId) config.business_account_id = businessAccountId;
+                } else if (provider === 'twilio') {
+                    const accountSid = document.getElementById('wa-account-sid')?.value.trim();
+                    const authToken = document.getElementById('wa-auth-token')?.value.trim();
+                    const fromNumber = document.getElementById('wa-from-number')?.value.trim();
+                    
+                    if (accountSid) config.account_sid = accountSid;
+                    if (authToken) config.auth_token = authToken;
+                    config.from_number = fromNumber;
+                } else if (provider === 'wati') {
+                    const apiUrl = document.getElementById('wa-api-url')?.value.trim();
+                    const apiKey = document.getElementById('wa-api-key')?.value.trim();
+                    
+                    config.api_url = apiUrl;
+                    if (apiKey) config.api_key = apiKey;
+                }
                 
                 try {
                     Loader.button(btn, true, { text: '...' });
-                    await API.notificationSettings.updateChannel('whatsapp', { provider: 'WhatsApp Business API', config, enabled: true });
+                    await API.notificationSettings.updateChannel('whatsapp', { provider, config, enabled: true });
                     Toast.success(I18n.t('settings.wa_saved'));
                     Modal.close();
                     this.renderNotificationsTab(document.getElementById('settings-content'));
@@ -1815,6 +1861,66 @@ Views.settings = {
                 Toast.success(I18n.t('settings.format_saved'));
             });
         });
+    },
+    
+    // ============================================
+    // HELPER: Mise a jour dynamique des champs WhatsApp selon le provider
+    // ============================================
+    updateWhatsAppConfigFields(providerId, channel) {
+        const container = document.getElementById('wa-config-fields');
+        if (!container) return;
+        
+        const cfg = channel.config || {};
+        let fieldsHTML = '';
+        
+        if (providerId === 'meta') {
+            fieldsHTML = `
+                <div class="form-group">
+                    <label class="form-label">Phone Number ID *</label>
+                    <input type="text" id="wa-phone-number-id" class="form-input" placeholder="Ex: 123456789012345" value="${cfg.phone_number_id || cfg.phone_id || ''}">
+                    <p class="form-hint text-xs">Visible dans Meta for Developers &gt; WhatsApp &gt; API Setup</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Access Token *</label>
+                    <input type="password" id="wa-access-token" class="form-input" placeholder="${cfg.access_token ? '••••••• (laisser vide pour conserver)' : 'EAAxxxxxxxxxxxxx'}">
+                    <p class="form-hint text-xs">Token permanent (System User Token recommande)</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Business Account ID (optionnel)</label>
+                    <input type="text" id="wa-business-account-id" class="form-input" placeholder="WABA ID" value="${cfg.business_account_id || ''}">
+                </div>
+            `;
+        } else if (providerId === 'twilio') {
+            fieldsHTML = `
+                <div class="form-group">
+                    <label class="form-label">Account SID *</label>
+                    <input type="text" id="wa-account-sid" class="form-input" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="${cfg.account_sid || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Auth Token *</label>
+                    <input type="password" id="wa-auth-token" class="form-input" placeholder="${cfg.auth_token ? '••••••• (laisser vide pour conserver)' : 'Votre Auth Token Twilio'}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Numero expediteur *</label>
+                    <input type="text" id="wa-from-number" class="form-input" placeholder="+14155238886" value="${(cfg.from_number || '').replace(/^whatsapp:/, '')}">
+                    <p class="form-hint text-xs">Numero WhatsApp Twilio approuve (format E.164, ex: +14155238886)</p>
+                </div>
+            `;
+        } else if (providerId === 'wati') {
+            fieldsHTML = `
+                <div class="form-group">
+                    <label class="form-label">API URL *</label>
+                    <input type="text" id="wa-api-url" class="form-input" placeholder="https://live-server-XXXX.wati.io" value="${cfg.api_url || ''}">
+                    <p class="form-hint text-xs">URL de votre instance WATI (sans / final)</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">API Key *</label>
+                    <input type="password" id="wa-api-key" class="form-input" placeholder="${cfg.api_key ? '••••••• (laisser vide pour conserver)' : 'Bearer token WATI'}">
+                </div>
+            `;
+        }
+        
+        container.innerHTML = fieldsHTML;
     },
     
     // ============================================
