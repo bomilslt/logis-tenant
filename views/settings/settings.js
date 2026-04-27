@@ -1339,23 +1339,24 @@ Views.settings = {
             });
             
             if (channel.provider) {
-                const providerMap = { 
-                    'SendGrid': 'sendgrid', 
-                    'Mailgun': 'mailgun',
-                    'Amazon SES': 'aws_ses',
-                    'SMTP personnalise': 'smtp',
-                    'smtp': 'smtp',
-                    'aws_ses': 'aws_ses'
-                };
-                const providerId = Object.entries(providerMap).find(([name]) => 
-                    channel.provider.includes(name) || channel.provider === name
-                )?.[1];
+                const validIds = ['sendgrid', 'mailgun', 'aws_ses', 'smtp'];
+                const raw = String(channel.provider).toLowerCase();
+                let providerId = validIds.find(id => raw === id || raw.includes(id));
+                // Mappings additionnels pour les anciens noms d'affichage
+                if (!providerId) {
+                    if (raw.includes('sendgrid')) providerId = 'sendgrid';
+                    else if (raw.includes('mailgun')) providerId = 'mailgun';
+                    else if (raw.includes('amazon') || raw.includes('aws')) providerId = 'aws_ses';
+                    else if (raw.includes('smtp')) providerId = 'smtp';
+                }
                 if (providerId) {
                     emailProviderSelect.setValue(providerId);
                     this.updateEmailConfigFields(providerId, channel);
+                } else {
+                    this.updateEmailConfigFields('sendgrid', channel);
                 }
             } else {
-                this.updateEmailConfigFields('smtp', channel);
+                this.updateEmailConfigFields('sendgrid', channel);
             }
             
             document.getElementById('btn-save-channel')?.addEventListener('click', async () => {
@@ -1373,9 +1374,30 @@ Views.settings = {
                     const region = document.getElementById('email-region')?.value.trim() || 'us-east-1';
                     
                     if (accessKey) config.api_key = accessKey;
-                    if (secretKey) config.aws_secret_access_key = secretKey;
+                    if (secretKey && secretKey !== '••••••••') config.aws_secret_access_key = secretKey;
                     config.region = region;
+                } else if (provider === 'mailgun') {
+                    const apiKey = document.getElementById('email-api-key').value.trim();
+                    const domain = document.getElementById('email-domain')?.value.trim();
+                    const region = document.getElementById('email-region')?.value || 'us';
+                    
+                    if (apiKey) config.api_key = apiKey;
+                    config.domain = domain;
+                    config.region = region;
+                } else if (provider === 'smtp') {
+                    const host = document.getElementById('email-host')?.value.trim();
+                    const port = parseInt(document.getElementById('email-port')?.value, 10) || 587;
+                    const username = document.getElementById('email-username')?.value.trim();
+                    const password = document.getElementById('email-password')?.value;
+                    
+                    config.host = host;
+                    config.port = port;
+                    config.username = username;
+                    if (password) config.password = password; // sinon le backend conserve l'ancien
+                    config.use_tls = port !== 465;
+                    config.use_ssl = port === 465;
                 } else {
+                    // SendGrid
                     const apiKey = document.getElementById('email-api-key').value.trim();
                     if (apiKey) config.api_key = apiKey;
                 }
@@ -1838,15 +1860,78 @@ Views.settings = {
                     <input type="text" id="email-from-name" class="form-input" placeholder="Express Cargo" value="${channel.config?.from_name || ''}">
                 </div>
             `;
-        } else {
-            // Champs standards (SendGrid, Mailgun, SMTP)
+        } else if (providerId === 'mailgun') {
+            // Champs Mailgun (api_key + domain + region requis)
+            const region = channel.config?.region || 'us';
             fieldsHTML = `
                 <div class="form-group">
-                    <label class="form-label">API Key</label>
-                    <input type="password" id="email-api-key" class="form-input" placeholder="API Key">
+                    <label class="form-label">API Key *</label>
+                    <input type="password" id="email-api-key" class="form-input" placeholder="key-xxxxxxxxxxxxxxxxxxxxxxxx">
+                    <p class="form-hint text-xs">${channel.config?.api_key ? '••••••• (laisser vide pour conserver)' : 'Cle API Mailgun (Settings &gt; API Keys)'}</p>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">${I18n.t('settings.sender_email')}</label>
+                    <label class="form-label">Domaine Mailgun *</label>
+                    <input type="text" id="email-domain" class="form-input" placeholder="mg.votredomaine.com" value="${channel.config?.domain || ''}">
+                    <p class="form-hint text-xs">Domaine verifie dans Mailgun (ex: mg.expresscargo.com)</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Region Mailgun *</label>
+                    <select id="email-region" class="form-input">
+                        <option value="us" ${region === 'us' ? 'selected' : ''}>US (api.mailgun.net)</option>
+                        <option value="eu" ${region === 'eu' ? 'selected' : ''}>EU (api.eu.mailgun.net)</option>
+                    </select>
+                    <p class="form-hint text-xs">Verifiez la region de votre compte Mailgun (sinon les requetes echouent silencieusement)</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${I18n.t('settings.sender_email')} *</label>
+                    <input type="email" id="email-from" class="form-input" placeholder="noreply@mg.votredomaine.com" value="${channel.config?.from_email || ''}">
+                    <p class="form-hint text-xs">Doit appartenir au domaine verifie</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${I18n.t('settings.sender_name')}</label>
+                    <input type="text" id="email-from-name" class="form-input" placeholder="Express Cargo" value="${channel.config?.from_name || ''}">
+                </div>
+            `;
+        } else if (providerId === 'smtp') {
+            // Champs SMTP generique (Gmail, Outlook, serveur perso)
+            const port = channel.config?.port || 587;
+            fieldsHTML = `
+                <div class="form-group">
+                    <label class="form-label">Hote SMTP *</label>
+                    <input type="text" id="email-host" class="form-input" placeholder="smtp.gmail.com" value="${channel.config?.host || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Port *</label>
+                    <input type="number" id="email-port" class="form-input" placeholder="587" value="${port}">
+                    <p class="form-hint text-xs">587 (TLS) ou 465 (SSL) ou 25</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Utilisateur (username) *</label>
+                    <input type="text" id="email-username" class="form-input" placeholder="user@gmail.com" value="${channel.config?.username || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mot de passe *</label>
+                    <input type="password" id="email-password" class="form-input" placeholder="${channel.config?.password ? '••••••• (laisser vide pour conserver)' : 'mot de passe ou app password'}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${I18n.t('settings.sender_email')} *</label>
+                    <input type="email" id="email-from" class="form-input" placeholder="noreply@expresscargo.com" value="${channel.config?.from_email || ''}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${I18n.t('settings.sender_name')}</label>
+                    <input type="text" id="email-from-name" class="form-input" placeholder="Express Cargo" value="${channel.config?.from_name || ''}">
+                </div>
+            `;
+        } else {
+            // SendGrid (et fallback): api_key + from_email + from_name
+            fieldsHTML = `
+                <div class="form-group">
+                    <label class="form-label">API Key *</label>
+                    <input type="password" id="email-api-key" class="form-input" placeholder="API Key">
+                    <p class="form-hint text-xs">${channel.config?.api_key ? '••••••• (laisser vide pour conserver)' : ''}</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">${I18n.t('settings.sender_email')} *</label>
                     <input type="email" id="email-from" class="form-input" placeholder="noreply@expresscargo.com" value="${channel.config?.from_email || ''}">
                 </div>
                 <div class="form-group">
