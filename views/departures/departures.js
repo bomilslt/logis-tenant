@@ -158,7 +158,7 @@ Views.departures = {
         const statusBadgeClass = { scheduled: 'status-pending', departed: 'status-in-transit', arrived: 'status-delivered', cancelled: 'status-customs' };
         
         // Compter les colis
-        const packagesCount = this.countPackagesForDeparture(dep.id);
+        const packagesCount = dep.packages_count || 0;
         
         // Jours restants (pour scheduled) ou jours depuis depart (pour departed)
         let timingInfo = '';

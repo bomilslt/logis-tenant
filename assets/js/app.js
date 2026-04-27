@@ -145,6 +145,16 @@ const App = {
     },
 
     setupEventListeners() {
+        // Empecher la molette de modifier la valeur des input[type=number]
+        // Quand un input numerique est focus et que l'utilisateur scrolle,
+        // on le blur => la page scrolle normalement, la valeur n'est pas alteree.
+        document.addEventListener('wheel', (e) => {
+            const el = document.activeElement;
+            if (el && el.tagName === 'INPUT' && el.type === 'number') {
+                el.blur();
+            }
+        }, { passive: true });
+
         // Menu mobile
         document.getElementById('btn-menu')?.addEventListener('click', () => {
             this.toggleSidebar(true);
