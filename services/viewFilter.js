@@ -24,7 +24,7 @@
 
 // Mapping: module backend → vues frontend autorisées
 const MODULE_VIEWS = {
-    packages:      ['packages', 'clients', 'pickups-payments'],
+    packages:      ['packages', 'clients', 'pickups-payments', 'groups'],
     finance:       ['reports', 'payroll', 'logi-pay'],
     departures:    ['departures'],
     communication: ['announcements'],
@@ -194,7 +194,7 @@ const ViewFilter = {
      */
     getModuleDefinitions() {
         return {
-            packages:      { label: 'Colis & Clients', icon: 'package', description: 'Gestion des colis, clients, retraits et paiements' },
+            packages:      { label: 'Colis & Clients', icon: 'package', description: 'Gestion des colis, groupages, clients, retraits et paiements' },
             finance:       { label: 'Finances', icon: 'trending-up', description: 'Rapports financiers et paie' },
             departures:    { label: 'Départs', icon: 'truck', description: 'Gestion des départs' },
             communication: { label: 'Communication', icon: 'megaphone', description: 'Annonces et notifications' },
