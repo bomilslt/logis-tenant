@@ -121,6 +121,7 @@ const App = {
         Router.register('/dashboard', () => Views.dashboard.render());
         Router.register('/packages', () => Views.packages.render());
         Router.register('/packages/:id', (ctx) => Views.packageDetail.render(ctx.params.id));
+        Router.register('/groups', () => Views.groups.render());
         Router.register('/clients', () => Views.clients.render());
         Router.register('/clients/:id', (ctx) => Views.clientDetail.render(ctx.params.id));
         Router.register('/pickups-payments', () => Views.pickupsPayments.render());

@@ -39,6 +39,11 @@ Views.login = {
                         ${Icons.get('lock', {size:18})} ${I18n.t('login.otp_login')}
                     </button>
                 </div>
+                <div class="login-legal">
+                    <a href="/privacy.html" target="_blank" rel="noopener">Politique de confidentialité</a>
+                    <span>&middot;</span>
+                    <a href="/terms.html" target="_blank" rel="noopener">Conditions d'utilisation</a>
+                </div>
             </div>
         `;
         

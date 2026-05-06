@@ -1157,10 +1157,30 @@ ul, ol { list-style: none; }
 .login-page {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--spacing-md);
     padding: var(--spacing-md);
     background: var(--color-gray-50);
+}
+
+.login-legal {
+    font-size: 0.75rem;
+    color: var(--color-gray-400);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.login-legal a {
+    color: var(--color-gray-400);
+    text-decoration: none;
+}
+
+.login-legal a:hover {
+    color: var(--color-gray-600);
+    text-decoration: underline;
 }
 
 .login-card {

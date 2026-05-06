@@ -201,6 +201,101 @@
 }
 
 
+/* ---- Photos section ---- */
+.pkg-photos-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pkg-photos-header .card-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin: 0;
+}
+
+.pkg-photo-add-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+}
+
+.pkg-photo-add-btn.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.pkg-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--spacing-sm);
+}
+
+.pkg-photo-item {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    aspect-ratio: 1;
+    background: var(--color-gray-100);
+    box-shadow: var(--shadow-sm);
+}
+
+.pkg-photo-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+    display: block;
+    transition: transform var(--transition-fast);
+}
+
+.pkg-photo-thumb:hover {
+    transform: scale(1.03);
+}
+
+.pkg-photo-label {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    font-size: 10px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    pointer-events: none;
+}
+
+.pkg-photo-delete {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    padding: 0;
+}
+
+.pkg-photo-item:hover .pkg-photo-delete {
+    opacity: 1;
+}
+
+.pkg-photos-empty {
+    margin: 0;
+    padding: var(--spacing-sm) 0;
+}
+
 /* Tracking Progress Integration */
 .card-body tracking-progress {
     display: block;

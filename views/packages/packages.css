@@ -167,6 +167,116 @@
     min-width: 50px;
 }
 
+/* --- Bouton scan caméra --- */
+.scan-camera-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    min-width: 44px;
+    color: var(--color-gray-600);
+    border: 1px solid var(--color-gray-300);
+    background: var(--color-white);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scan-camera-btn:hover {
+    background: var(--color-gray-100);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.scan-camera-btn.active {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+    animation: cam-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cam-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--color-primary-rgb, 99, 102, 241), 0.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(var(--color-primary-rgb, 99, 102, 241), 0); }
+}
+
+/* --- Zone caméra inline --- */
+.cam-scan-zone {
+    margin-bottom: var(--spacing-sm);
+}
+
+.cam-scan-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+    animation: fadeIn 0.2s ease;
+}
+
+.cam-scan-viewport {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4 / 3;
+}
+
+#cam-scan-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cam-scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* Cadre de ciblage */
+.cam-scan-frame {
+    width: 65%;
+    aspect-ratio: 3 / 1.5;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+}
+
+/* Ligne de scan animée */
+.cam-scan-beam {
+    position: absolute;
+    left: 17.5%;
+    right: 17.5%;
+    height: 2px;
+    background: var(--color-primary, #6366f1);
+    box-shadow: 0 0 8px var(--color-primary, #6366f1);
+    animation: cam-beam 1.6s ease-in-out infinite;
+    border-radius: 2px;
+}
+
+@keyframes cam-beam {
+    0%   { top: calc(50% - 28%); opacity: 1; }
+    50%  { top: calc(50% + 28%); opacity: 0.7; }
+    100% { top: calc(50% - 28%); opacity: 1; }
+}
+
+.cam-scan-hint {
+    font-size: 12px;
+    color: var(--color-gray-500);
+    text-align: center;
+}
+
+.cam-scan-stop {
+    font-size: 12px;
+    color: var(--color-gray-600);
+}
+
 .scan-searching {
     display: flex;
     align-items: center;
@@ -561,6 +671,61 @@
     color: var(--color-primary);
 }
 
+.receive-photo-section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    background: var(--color-gray-50);
+    border: 1px dashed var(--color-gray-300);
+    border-radius: var(--radius-md);
+}
+
+.receive-photo-btn {
+    flex-shrink: 0;
+}
+
+.receive-photo-preview {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.receive-photo-thumb {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--color-gray-200);
+    background: var(--color-gray-100);
+}
+
+.receive-photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.receive-photo-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    font-size: 16px;
+    line-height: 18px;
+    cursor: pointer;
+}
+
 /* Actions */
 .receive-actions {
     display: flex;
@@ -598,4 +763,31 @@
 [data-theme="dark"] .receive-rate-info {
     background: var(--color-gray-200);
     border-color: var(--color-gray-300);
+}
+
+/* ---- Photo badge in package list ---- */
+.pkg-photo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    background: var(--color-gray-100);
+    border: 1px solid var(--color-gray-200);
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    color: var(--color-gray-500);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.pkg-photo-badge:hover {
+    background: var(--color-primary-bg);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.pkg-photo-badge .icon {
+    width: 12px;
+    height: 12px;
 }

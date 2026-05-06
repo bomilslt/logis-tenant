@@ -244,6 +244,25 @@ Views.packageDetail = {
                     </div>
                 </div>
                 
+                <!-- Photos -->
+                <div class="card mt-md" id="pkg-photos-card">
+                    <div class="card-header pkg-photos-header">
+                        <h3 class="card-title">${Icons.get('camera', {size:16})} Photos du colis</h3>
+                        <label class="btn btn-sm btn-outline pkg-photo-add-btn" title="Ajouter une photo">
+                            ${Icons.get('plus', {size:14})} Ajouter
+                            <input type="file" id="pkg-photo-input" accept="image/*" multiple hidden>
+                        </label>
+                    </div>
+                    <div class="card-body">
+                        <div class="pkg-photos-grid" id="pkg-photos-grid">
+                            ${this.renderPhotos(pkg.photos || [])}
+                        </div>
+                        ${(pkg.photos || []).length === 0 ? `
+                            <p class="text-sm text-muted pkg-photos-empty">Aucune photo — ajoutez une photo à la réception du colis.</p>
+                        ` : ''}
+                    </div>
+                </div>
+
                 <!-- Historique -->
                 <div class="card mt-md">
                     <div class="card-header">
@@ -273,6 +292,27 @@ Views.packageDetail = {
         `;
         
         this.attachEvents(pkg);
+    },
+
+    renderPhotos(photos) {
+        if (!photos || photos.length === 0) return '';
+        return photos.map((photo, index) => `
+            <div class="pkg-photo-item" data-index="${index}">
+                <img src="${photo.url}" alt="Photo ${index + 1}" class="pkg-photo-thumb" data-url="${photo.url}">
+                ${photo.type && photo.type !== 'reception' ? `<span class="pkg-photo-label">${photo.type}</span>` : ''}
+                <button class="pkg-photo-delete" data-index="${index}" title="Supprimer">
+                    ${Icons.get('x', {size:12})}
+                </button>
+            </div>
+        `).join('');
+    },
+
+    _refreshPhotos(photos) {
+        const grid = document.getElementById('pkg-photos-grid');
+        const empty = document.querySelector('.pkg-photos-empty');
+        if (grid) grid.innerHTML = this.renderPhotos(photos);
+        if (empty) empty.style.display = photos.length > 0 ? 'none' : '';
+        if (this.currentPackage) this.currentPackage.photos = photos;
     },
 
     attachEvents(pkg) {
@@ -313,6 +353,54 @@ Views.packageDetail = {
         
         document.getElementById('btn-delivery-report')?.addEventListener('click', () => {
             this.showDeliveryReportForm(pkg);
+        });
+
+        // Photos — upload
+        document.getElementById('pkg-photo-input')?.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+            const label = document.querySelector('.pkg-photo-add-btn');
+            if (label) label.classList.add('loading');
+            for (const file of files) {
+                try {
+                    const fd = new FormData();
+                    fd.append('file', file);
+                    fd.append('type', 'reception');
+                    const res = await API.packages.addPhoto(pkg.id, fd);
+                    this._refreshPhotos(res.photos);
+                    Toast.success('Photo ajoutée');
+                } catch (err) {
+                    Toast.error(err.message || 'Erreur lors de l\'upload');
+                }
+            }
+            if (label) label.classList.remove('loading');
+            e.target.value = '';
+        });
+
+        // Photos — suppression (délégation)
+        document.getElementById('pkg-photos-grid')?.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.pkg-photo-delete');
+            if (!btn) return;
+            const index = parseInt(btn.dataset.index);
+            if (!confirm('Supprimer cette photo ?')) return;
+            try {
+                const res = await API.packages.deletePhoto(pkg.id, index);
+                this._refreshPhotos(res.photos);
+                Toast.success('Photo supprimée');
+            } catch (err) {
+                Toast.error(err.message || 'Erreur suppression');
+            }
+        });
+
+        // Photos — lightbox au clic sur image
+        document.getElementById('pkg-photos-grid')?.addEventListener('click', (e) => {
+            const img = e.target.closest('.pkg-photo-thumb');
+            if (!img) return;
+            Modal.open({
+                title: 'Photo du colis',
+                content: `<img src="${img.dataset.url}" style="width:100%;border-radius:var(--radius-md);">`,
+                size: 'lg'
+            });
         });
     },
     

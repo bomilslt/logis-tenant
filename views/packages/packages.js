@@ -8,6 +8,7 @@ Views.packages = {
     allPackages: [],
     departures: [], // Cache des départs chargés depuis l'API
     receivedCount: 0, // Compteur pour la session de scan
+    receivePhotoFiles: [],
     currentPage: 1,
     pageSize: 10,
     pagination: null,
@@ -255,7 +256,17 @@ Views.packages = {
         return `
             <tr data-id="${p.id}">
                 <td><input type="checkbox" class="pkg-checkbox" value="${p.id}" ${this.selectedIds.has(p.id) ? 'checked' : ''}></td>
-                <td><strong>${tracking}</strong><div class="text-sm text-muted">${supplierTracking}</div></td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <strong>${tracking}</strong>
+                        ${(p.photos && p.photos.length > 0) ? `
+                            <span class="pkg-photo-badge" title="${p.photos.length} photo(s)" onclick="event.stopPropagation();Views.packages.quickViewPhoto('${p.id}','${p.photos[0].url}')">
+                                ${Icons.get('camera', {size:12})}${p.photos.length > 1 ? `<span>${p.photos.length}</span>` : ''}
+                            </span>
+                        ` : ''}
+                    </div>
+                    ${supplierTracking ? `<div class="text-sm text-muted">${supplierTracking}</div>` : ''}
+                </td>
                 <td><div>${clientName}</div><div class="text-sm text-muted">${clientPhone}</div></td>
                 <td>${p.description || '-'}</td>
                 <td><span class="transport-badge transport-${transport}">${this.getTransportLabel(transport)}</span></td>
@@ -458,10 +469,16 @@ Views.packages = {
                     <div class="scanner-input-wrapper">
                         <input type="text" id="scan-input" class="form-input scan-input" 
                             placeholder="${I18n.t('packages.scanner_placeholder')}" autofocus autocomplete="off">
+                        <button class="btn btn-icon scan-camera-btn" id="btn-scan-camera" title="Scanner avec la caméra">
+                            ${Icons.get('camera', {size:18})}
+                        </button>
                         <button class="btn btn-primary scan-btn" id="btn-scan-search">
                             ${Icons.get('search', {size:18})}
                         </button>
                     </div>
+
+                    <!-- Zone d'injection du flux caméra (masquée par défaut) -->
+                    <div id="cam-scan-zone" class="cam-scan-zone"></div>
                     
                     <div class="scanner-status" id="scanner-status"></div>
                     
@@ -568,7 +585,7 @@ Views.packages = {
             }
         });
         
-        // Bouton recherche pour mobile
+        // Bouton recherche pour scanner physique / saisie manuelle
         document.getElementById('btn-scan-search')?.addEventListener('click', async (e) => {
             const btn = e.currentTarget;
             try {
@@ -578,9 +595,56 @@ Views.packages = {
                 Loader.button(btn, false);
             }
         });
-        
+
+        // ---- Bouton scan caméra ----
+        let stopCamScan = null;
+        const camZone = document.getElementById('cam-scan-zone');
+        const camBtn = document.getElementById('btn-scan-camera');
+
+        camBtn?.addEventListener('click', async () => {
+            // Si un scan est déjà actif, l'arrêter
+            if (stopCamScan) {
+                stopCamScan();
+                stopCamScan = null;
+                camBtn.classList.remove('active');
+                return;
+            }
+
+            camBtn.classList.add('active');
+            statusDiv.innerHTML = '';
+
+            stopCamScan = await BarcodeScanner.scan(
+                camZone,
+                // onDetected : code lisible → injecter dans l'input et déclencher recherche
+                (value) => {
+                    stopCamScan = null;
+                    camBtn.classList.remove('active');
+                    scanInput.value = value;
+                    this.processScannedCode(value);
+                },
+                // onError : afficher un message dans la zone de statut
+                (msg) => {
+                    stopCamScan = null;
+                    camBtn.classList.remove('active');
+                    statusDiv.innerHTML = `
+                        <div class="scan-warning">
+                            ${Icons.get('alert-circle', {size:18})}
+                            <span>${msg}</span>
+                        </div>
+                    `;
+                    scanInput?.focus();
+                }
+            );
+
+            // Si stopCamScan est null ici, le scan a échoué immédiatement (ex: refus permission)
+            if (!stopCamScan) {
+                camBtn.classList.remove('active');
+            }
+        });
+
         // Bouton fermer
         document.getElementById('btn-close-scanner')?.addEventListener('click', () => {
+            if (stopCamScan) { stopCamScan(); stopCamScan = null; }
             Modal.close();
             this.loadPackages();
         });
@@ -737,6 +801,7 @@ Views.packages = {
         
         // Stocker le colis courant
         this.currentReceivePackage = pkg;
+        this.receivePhotoFiles = [];
         
         // Déterminer l'unité de facturation selon les tarifs configurés
         const transport = pkg.transport_mode;
@@ -874,6 +939,15 @@ Views.packages = {
                         <span class="total-label">${I18n.t('packages.total_amount')}:</span>
                         <span class="total-value" id="receive-total-value">-</span>
                     </div>
+
+                    <div class="receive-photo-section">
+                        <input type="file" id="receive-photo-input" accept="image/*" capture="environment" multiple hidden>
+                        <button type="button" class="btn btn-outline receive-photo-btn" id="btn-receive-photo">
+                            ${Icons.get('camera', {size:16})} Photo du colis
+                        </button>
+                        <span class="text-sm text-muted">Ajouter une ou plusieurs images avant confirmation</span>
+                        <div class="receive-photo-preview" id="receive-photo-preview"></div>
+                    </div>
                     
                     <div style="margin:12px 0;display:flex;align-items:center;gap:8px">
                         <input type="checkbox" id="receive-print-label" checked>
@@ -898,6 +972,49 @@ Views.packages = {
         // Calculer le total initial
         this.calculateReceiveTotal(billingUnit);
     },
+
+    renderReceivePhotoPreview() {
+        const preview = document.getElementById('receive-photo-preview');
+        if (!preview) return;
+
+        preview.innerHTML = this.receivePhotoFiles.map((file, index) => `
+            <div class="receive-photo-thumb" data-index="${index}">
+                <img src="${URL.createObjectURL(file)}" alt="Photo ${index + 1}">
+                <button type="button" class="receive-photo-remove" data-index="${index}">×</button>
+            </div>
+        `).join('');
+    },
+
+    handleReceivePhotoFiles(files) {
+        const validFiles = Array.from(files || []).filter(file => {
+            if (!file.type.startsWith('image/')) {
+                Toast.error('Veuillez sélectionner une image');
+                return false;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                Toast.error('Image trop lourde (max 5 Mo)');
+                return false;
+            }
+            return true;
+        });
+
+        this.receivePhotoFiles.push(...validFiles);
+        this.renderReceivePhotoPreview();
+    },
+
+    async uploadReceivePhotos(packageId) {
+        if (!this.receivePhotoFiles.length) return 0;
+
+        let uploadedCount = 0;
+        for (const file of this.receivePhotoFiles) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('type', 'reception');
+            await API.packages.addPhoto(packageId, fd);
+            uploadedCount++;
+        }
+        return uploadedCount;
+    },
     
     attachReceiveFormEvents(billingUnit) {
         const scanInput = document.getElementById('scan-input');
@@ -916,8 +1033,26 @@ Views.packages = {
             statusDiv.innerHTML = '';
             this.currentReceivePackage = null;
             this.currentReceiveRate = null;
+            this.receivePhotoFiles = [];
             scanInput.value = '';
             scanInput?.focus();
+        });
+
+        document.getElementById('btn-receive-photo')?.addEventListener('click', () => {
+            document.getElementById('receive-photo-input')?.click();
+        });
+
+        document.getElementById('receive-photo-input')?.addEventListener('change', (e) => {
+            this.handleReceivePhotoFiles(e.target.files);
+            e.target.value = '';
+        });
+
+        document.getElementById('receive-photo-preview')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.receive-photo-remove');
+            if (!btn) return;
+            const index = parseInt(btn.dataset.index);
+            this.receivePhotoFiles.splice(index, 1);
+            this.renderReceivePhotoPreview();
         });
         
         // Bouton confirmer
@@ -989,6 +1124,14 @@ Views.packages = {
                 unit_price: unitPrice,
                 notify: true
             });
+
+            let uploadedPhotos = 0;
+            try {
+                uploadedPhotos = await this.uploadReceivePhotos(pkg.id);
+            } catch (photoError) {
+                console.error('Receive photo upload error:', photoError);
+                Toast.warning(photoError.message || 'Colis reçu, mais erreur lors de l’ajout des photos');
+            }
             
             this.receivedCount++;
             countSpan.textContent = this.receivedCount;
@@ -1014,6 +1157,7 @@ Views.packages = {
                         <strong>${pkg.tracking_number}</strong>
                         <span>${pkg.client?.name || 'Client'} - ${pkg.description}</span>
                         <span class="text-sm">${measureInfo} × ${unitPrice.toLocaleString()} XAF = ${Math.round(amount).toLocaleString()} XAF</span>
+                        ${uploadedPhotos ? `<span class="text-sm text-success">✓ ${uploadedPhotos} photo(s) ajoutée(s)</span>` : ''}
                         ${result.notification ? `<span class="text-sm text-success">✓ ${I18n.t('packages.scanner_client_notified')}</span>` : ''}
                     </div>
                 </div>
@@ -1047,6 +1191,7 @@ Views.packages = {
             // Reset des variables
             this.currentReceivePackage = null;
             this.currentReceiveRate = null;
+            this.receivePhotoFiles = [];
             
         } catch (error) {
             console.error('Receive package error:', error);
@@ -1374,6 +1519,19 @@ Views.packages = {
         printWindow.document.close();
     },
     
+    quickViewPhoto(packageId, firstPhotoUrl) {
+        Modal.open({
+            title: 'Photo du colis',
+            content: `
+                <img src="${firstPhotoUrl}" style="width:100%;border-radius:var(--radius-md);display:block;">
+                <p class="text-sm text-muted" style="margin-top:var(--spacing-sm);text-align:center;">
+                    <a href="#/packages/${packageId}" onclick="Modal.close();Router.navigate('/packages/${packageId}')">Voir toutes les photos →</a>
+                </p>
+            `,
+            size: 'lg'
+        });
+    },
+
     getTransportLabel(mode) { return CONFIG.TRANSPORT_MODES.find(t => t.value === mode)?.label || mode; },
     getTypeLabel(type) { 
         const allTypes = [...(CONFIG.PACKAGE_TYPES?.air || []), ...(CONFIG.PACKAGE_TYPES?.sea || [])];

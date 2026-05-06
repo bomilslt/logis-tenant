@@ -318,9 +318,53 @@ const API = {
         }),
         
         delete: (id) => API.request(`/admin/packages/${id}`, { method: 'DELETE' }),
-        getStats: () => API.request('/admin/packages/stats')
+        getStats: () => API.request('/admin/packages/stats'),
+
+        addPhoto: (id, formData) => API.request(`/admin/packages/${id}/photos`, {
+            method: 'POST',
+            body: formData
+        }),
+        deletePhoto: (id, photoIndex) => API.request(`/admin/packages/${id}/photos/${photoIndex}`, {
+            method: 'DELETE'
+        })
     },
     
+    // ============================================
+    // GROUPAGES (admin)
+    // ============================================
+    groups: {
+        getAll: (params = {}) => {
+            const cleanParams = {};
+            for (const [k, v] of Object.entries(params)) {
+                if (v !== undefined && v !== null && v !== '') cleanParams[k] = v;
+            }
+            const query = new URLSearchParams(cleanParams).toString();
+            return API.request(`/admin/groups${query ? '?' + query : ''}`);
+        },
+        getById: (id) => API.request(`/admin/groups/${id}`),
+
+        approve: (id, data = {}) => API.request(`/admin/groups/${id}/approve`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }),
+        reject: (id, reason) => API.request(`/admin/groups/${id}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ reason })
+        }),
+        consolidate: (id, data = {}) => API.request(`/admin/groups/${id}/consolidate`, {
+            method: 'POST',
+            body: JSON.stringify(data) // { departure_id?, admin_notes? }
+        }),
+
+        addPackages: (id, packageIds) => API.request(`/admin/groups/${id}/packages`, {
+            method: 'POST',
+            body: JSON.stringify({ package_ids: packageIds })
+        }),
+        removePackage: (id, packageId) => API.request(`/admin/groups/${id}/packages/${packageId}`, {
+            method: 'DELETE'
+        })
+    },
+
     // ============================================
     // CLIENTS
     // ============================================

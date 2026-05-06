@@ -169,6 +169,7 @@
     <link rel="stylesheet" href="views/login/login.css">
     <link rel="stylesheet" href="views/dashboard/dashboard.css">
     <link rel="stylesheet" href="views/packages/packages.css">
+    <link rel="stylesheet" href="views/groups/groups.css">
     <link rel="stylesheet" href="views/package-detail/package-detail.css">
     <link rel="stylesheet" href="views/clients/clients.css">
     <link rel="stylesheet" href="views/client-detail/client-detail.css">
@@ -237,6 +238,12 @@
                         <use href="#package"></use>
                     </svg>
                     <span data-i18n="nav.packages">Colis</span>
+                </a>
+                <a href="#/groups" class="nav-link" data-view="groups">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <use href="#layers"></use>
+                    </svg>
+                    <span data-i18n="nav.groups">Groupages</span>
                 </a>
                 <a href="#/departures" class="nav-link" data-view="departures">
                     <svg class="icon" viewBox="0 0 24 24">
@@ -432,12 +439,14 @@
     <script src="assets/js/services/push.js"></script>
     <script src="assets/js/services/rates.js"></script>
     <script src="assets/js/services/invoice.js"></script>
+    <script src="assets/js/services/barcode-scanner.js"></script>
 
     <!-- Views -->
     <script src="views/index.js"></script>
     <script src="views/login/login.js"></script>
     <script src="views/dashboard/dashboard.js"></script>
     <script src="views/packages/packages.js"></script>
+    <script src="views/groups/groups.js"></script>
     <script src="views/package-detail/package-detail.js"></script>
     <script src="views/clients/clients.js"></script>
     <script src="views/client-detail/client-detail.js"></script>
